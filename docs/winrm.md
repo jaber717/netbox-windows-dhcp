@@ -50,10 +50,43 @@ in the allowed principal; otherwise test from NetBox).
 Install the plugin from GitHub (`pypsrp` is installed with it):
 
 ```bash
-sudo /opt/netbox/venv/bin/pip install "git+https://github.com/<org>/netbox-windows-dhcp.git@<commit>"
+export https_proxy=http://PROXY:PORT
+sudo mkdir -p /opt/netbox-plugins
+sudo -E git clone -b winrm-readonly https://github.com/jaber717/netbox-windows-dhcp.git /opt/netbox-plugins/netbox-windows-dhcp
+sudo -E /opt/netbox/venv/bin/pip install /opt/netbox-plugins/netbox-windows-dhcp
 ```
 
-`configuration.py`:
+Then configure NetBox with one command (no Python editing):
+
+```bash
+cd /opt/netbox-plugins/netbox-windows-dhcp
+sudo bash contrib/apply-config.sh /opt/netbox            # asks for the account and password
+sudo /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py migrate
+sudo /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py collectstatic --no-input
+sudo systemctl restart netbox netbox-rq
+```
+
+`apply-config.sh`:
+
+- stores the password in `/etc/netbox/dhcp-winrm.env` (root only, base64 so any character
+  works) and adds systemd drop-ins so `netbox` and `netbox-rq` load it; the password is never
+  written to `configuration.py`;
+- appends a marked block to `configuration.py` (plugin enabled, `transport: winrm`, account,
+  auth); nothing else in the file is touched, so other plugins' settings stay as they are;
+- backs everything up, runs `manage.py check` and restores everything if anything fails;
+- can be re-run, e.g. after a password change (then restart the services).
+
+Options: `--username 'CORP\svc-netbox-dhcp'`, `--auth ntlm|negotiate|kerberos`.
+
+Test a server from the command line before adding it in the UI (read-only):
+
+```bash
+sudo bash contrib/test-winrm.sh /opt/netbox dhcp01.corp.example /path/to/winrm-DHCP01.cer
+```
+
+It prints health, scopes with lease counts, failover relationships, and confirms writes are refused.
+
+<details><summary>Manual configuration instead of the script</summary>
 
 ```python
 import os
@@ -73,13 +106,7 @@ PLUGINS_CONFIG = {
 }
 ```
 
-Put the password in the NetBox service environment (for example a systemd drop-in with
-`Environment=NETBOX_DHCP_WINRM_PASSWORD=...` readable only by root), not in Git.
-
-```bash
-sudo /opt/netbox/venv/bin/python /opt/netbox/netbox/manage.py migrate
-sudo systemctl restart netbox netbox-rq
-```
+</details>
 
 WinRM traffic never goes through `https_proxy`/`HTTP_PROXY` (DHCP servers are internal).
 Set `'use_proxy': True` under `winrm` only if you really route WinRM through a proxy.
@@ -91,6 +118,15 @@ Set `'use_proxy': True` under `winrm` only if you really route WinRM through a p
 your AD CS root, or the `.cer` file from step 1. Leave **App Token** empty.
 
 Run the health check: the server should show **Healthy** and **Read-only**.
+
+### Failover pairs
+
+Install the JEA endpoint on **both** servers and add **both** in NetBox before importing.
+The failover is matched by hostname: the primary reports its FQDN, the partner is reported
+exactly as written in Windows (`Get-DhcpServerv4Failover | Select Name, PartnerServer`). Use that
+exact string as the partner's Hostname in NetBox, and make sure the partner's certificate covers it.
+A newly imported failover starts in maintenance mode and its scopes are skipped: check its Default
+Scope VRF, take it out of maintenance, then run *Import from Server* again.
 
 ## 4. Safe first import
 
