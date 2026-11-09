@@ -182,19 +182,22 @@ class DHCPPluginSettings(ChangeLoggingMixin, models.Model):
         callers automatically receive the effective values without any call-site changes.
         """
         obj, _ = cls.objects.get_or_create(pk=1)
+        from .transport import effective_overrides, is_read_only_transport
+        field_for = {
+            'sync_ips_from_dhcp': 'sync_ip_addresses',
+            'push_reservations': 'push_reservations',
+            'push_scope_info': 'push_scope_info',
+        }
         try:
-            from django.conf import settings as django_settings
-            plugin_cfg = getattr(django_settings, 'PLUGINS_CONFIG', {}).get('netbox_windows_dhcp', {})
-            for cfg_key, field_name in {
-                'sync_ips_from_dhcp': 'sync_ip_addresses',
-                'push_reservations': 'push_reservations',
-                'push_scope_info': 'push_scope_info',
-            }.items():
-                val = plugin_cfg.get(cfg_key)
-                if val is not None:
-                    setattr(obj, field_name, bool(val))
+            overrides = effective_overrides()
         except Exception:
-            pass
+            overrides = {}
+        if is_read_only_transport():
+            # Never let a config error silently re-enable writes to the DHCP servers.
+            overrides['push_reservations'] = False
+            overrides['push_scope_info'] = False
+        for cfg_key, val in overrides.items():
+            setattr(obj, field_for[cfg_key], bool(val))
         return obj
 
 

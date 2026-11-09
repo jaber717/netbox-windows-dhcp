@@ -1434,7 +1434,7 @@ def _sync_server(job_logger, server, sync_ip_addresses: bool, push_reservations:
     """
     from django.utils import timezone
 
-    from .api_client import PSUClient, PSUClientError
+    from .api_client import PSUClientError, get_client
     from .import_logic import remote_has_router, router_from_options
     from .models import DHCPFailover, DHCPScope, DHCPServer
     from .utils import (
@@ -1476,7 +1476,7 @@ def _sync_server(job_logger, server, sync_ip_addresses: bool, push_reservations:
         f'Syncing server: {server.name} ({server.hostname}) — '
         f'sync_ip_addresses={sync_ip_addresses} push_reservations={push_reservations} push_scope_info={push_scope_info}'
     )
-    client = PSUClient(server)
+    client = get_client(server)
 
     _t_psu_bulk_start = time.perf_counter()
     _t_ip_updates = 0.0
@@ -2101,7 +2101,7 @@ class DHCPSyncJob(JobRunner):
         # timeout so the connection isn't recycled mid-job by close_old_connections().
         _db_connection.settings_dict['CONN_MAX_AGE'] = _cfg.sync_job_timeout
 
-        from .api_client import PSUClient, PSUClientError
+        from .api_client import PSUClientError, get_client
         from .constants import PSU_SCRIPT_VERSION
         from .models import DHCPFailover, DHCPServer
         from django.utils import timezone
@@ -2152,7 +2152,7 @@ class DHCPSyncJob(JobRunner):
             if server.maintenance_mode:
                 self.logger.info(f'Server {server.name}: health check skipped (maintenance mode)')
                 continue
-            client = PSUClient(server)
+            client = get_client(server)
             try:
                 result = client.ping_read()
             except PSUClientError as exc:
@@ -2346,7 +2346,7 @@ def _check_server_health(logger, job, server):
 
     from core.exceptions import JobFailed
 
-    from .api_client import PSUClient, PSUClientError
+    from .api_client import PSUClientError, get_client
     from .constants import PSU_SCRIPT_VERSION
     from .models import DHCPServer
 
@@ -2365,7 +2365,7 @@ def _check_server_health(logger, job, server):
         job.save(update_fields=['error'])
         raise JobFailed()
 
-    client = PSUClient(server)
+    client = get_client(server)
     try:
         result = client.ping_read()
     except PSUClientError as exc:
@@ -2721,7 +2721,7 @@ class DHCPScopePushJob(_PushJobMixin, JobRunner):
             self.logger.error('No server_pk/scope_pks provided to job.')
             return
 
-        from .api_client import PSUClient
+        from .api_client import get_client
         from .models import DHCPServer
 
         try:
@@ -2740,7 +2740,7 @@ class DHCPScopePushJob(_PushJobMixin, JobRunner):
             self.logger.info(f'Server {server.name}: API token is read-only — skipping scope push')
             return
 
-        client = PSUClient(server)
+        client = get_client(server)
         cfg = _load_settings()
         with _change_logging():
             failed = _push_scopes(self.logger, client, server, scope_pks, cfg=cfg)
@@ -2773,7 +2773,7 @@ class DHCPReservationPushJob(_PushJobMixin, JobRunner):
             self.logger.error('No server_pk/scope_pks provided to job.')
             return
 
-        from .api_client import PSUClient
+        from .api_client import get_client
         from .models import DHCPScope, DHCPServer
 
         cfg = _load_settings()
@@ -2811,7 +2811,7 @@ class DHCPReservationPushJob(_PushJobMixin, JobRunner):
         if not scopes:
             return
 
-        client = PSUClient(server)
+        client = get_client(server)
         with _change_logging():
             changed, failed = _push_scope_reservations(self.logger, client, server, scopes, cfg)
         _replicate(self.logger, client, {sid for sid in changed if scopes[sid].failover_id})
@@ -2919,7 +2919,7 @@ class DHCPScopeDeleteJob(_PushJobMixin, JobRunner):
             self.logger.error('No server_pk/deletes provided to job.')
             return
 
-        from .api_client import PSUClient
+        from .api_client import get_client
         from .models import DHCPServer
 
         try:
@@ -2938,7 +2938,7 @@ class DHCPScopeDeleteJob(_PushJobMixin, JobRunner):
             self.logger.info(f'Server {server.name}: API token is read-only — skipping scope delete')
             return
 
-        client = PSUClient(server)
+        client = get_client(server)
         _delete_scopes(self.logger, client, server, deletes)
 
 
@@ -3052,7 +3052,7 @@ class DHCPPSUUpdateJob(JobRunner):
 
         from core.exceptions import JobFailed
 
-        from .api_client import PSUClient, PSUClientError
+        from .api_client import PSUClientError, get_client
         from .constants import PSU_SCRIPT_VERSION
         from .models import DHCPServer
 
@@ -3078,7 +3078,7 @@ class DHCPPSUUpdateJob(JobRunner):
 
         self.logger.info(f'Parsed {len(defined_endpoints)} endpoint definition(s) from PS1 file')
 
-        client = PSUClient(server)
+        client = get_client(server)
 
         # Fetch current PSU endpoint records
         try:

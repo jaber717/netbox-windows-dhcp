@@ -60,6 +60,18 @@ class PSUClientError(Exception):
         self.status_code = status_code
 
 
+def get_client(server):
+    """
+    The DHCP API client for `server`, per PLUGINS_CONFIG['netbox_windows_dhcp']['transport']:
+    PSUClient (PowerShell Universal, default) or WinRMClient (WinRM/JEA, read-only).
+    """
+    from .transport import TRANSPORT_WINRM, transport_name
+    if transport_name() == TRANSPORT_WINRM:
+        from .winrm_client import WinRMClient
+        return WinRMClient(server)
+    return PSUClient(server)
+
+
 class PSUClient:
     """Thin HTTP client for a single PowerShell Universal DHCP API endpoint."""
 

@@ -20,6 +20,8 @@ requires-python = ">=3.12"
 # api_client.py for the PowerShell Universal HTTP API, so declare it explicitly.
 dependencies = [
     "requests>=2.28.0",
+    # WinRM transport (PLUGINS_CONFIG transport = "winrm"); pure Python, NTLM built in.
+    "pypsrp>=0.8",
 ]
 keywords = [
     "netbox",

@@ -833,8 +833,10 @@ class PluginSettingsForm(forms.ModelForm):
                     raw_db = type(self.instance).objects.get(pk=self.instance.pk)
                 except type(self.instance).DoesNotExist:
                     pass
+            from .transport import effective_overrides
+            overrides = effective_overrides(plugin_cfg)
             for cfg_key, field_name in _SETTINGS_OVERRIDE_FIELD_MAP.items():
-                if plugin_cfg.get(cfg_key) is not None:
+                if cfg_key in overrides:
                     self.fields[field_name].disabled = True
                     self.overridden_fields.add(field_name)
                     if raw_db is not None:

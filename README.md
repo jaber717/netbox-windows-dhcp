@@ -13,6 +13,13 @@ A NetBox plugin that connects NetBox to Windows DHCP Server through [PowerShell 
 - **Runs everything as background jobs,** recorded in NetBox's changelog and able to fire NetBox event rules.
 - **Full REST API** for all plugin objects.
 
+## This fork: WinRM transport, no PowerShell Universal
+
+This fork can reach the DHCP servers over **WinRM into a read-only JEA endpoint** instead of
+PowerShell Universal: no PSU, no license, read-only by design (enforced in NetBox and on Windows).
+Set `'transport': 'winrm'` in `PLUGINS_CONFIG` and run `windows/Install-NetboxDhcpReader.ps1`
+on each DHCP server. See [docs/winrm.md](docs/winrm.md).
+
 ## Requirements
 
 NetBox 4.5 or 4.6, Python 3.12 or later, and a licensed PowerShell Universal install on each Windows DHCP server. See [Requirements](https://github.com/averyhabbott/netbox-windows-dhcp/blob/main/docs/requirements.md) for the details.

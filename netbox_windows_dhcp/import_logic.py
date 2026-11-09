@@ -23,7 +23,7 @@ def run_import(server) -> Dict:
     Connect to *server* and import failovers, scopes, and scope options.
     Returns a results dict suitable for template rendering.
     """
-    from .api_client import PSUClient, PSUClientError
+    from .api_client import PSUClientError, get_client
 
     results = {
         'failovers':        {'created': [], 'skipped': [], 'errors': []},
@@ -32,7 +32,7 @@ def run_import(server) -> Dict:
         'exclusion_ranges': {'created': [], 'skipped': [], 'errors': []},
     }
 
-    client = PSUClient(server)
+    client = get_client(server)
 
     # ------------------------------------------------------------------ #
     # 1. Failover relationships

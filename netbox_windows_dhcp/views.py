@@ -1391,7 +1391,7 @@ class DHCPServerTestConnectionView(LoginRequiredMixin, View):
     """AJAX POST: test PSU connectivity with live form values. Returns JSON."""
 
     def post(self, request, pk=None):
-        from .api_client import PSUClient, PSUClientError
+        from .api_client import PSUClientError, get_client
 
         # It can use a saved server's token, so it needs change permission on that server
         # (or permission to add or change servers, from the add form).
@@ -1459,7 +1459,7 @@ class DHCPServerTestConnectionView(LoginRequiredMixin, View):
         server_obj.base_url = f'{scheme}://{hostname}:{port}/api/dhcp'
 
         try:
-            client = PSUClient(server_obj)
+            client = get_client(server_obj)
         except PSUClientError as exc:
             return JsonResponse({'ok': False, 'message': str(exc)})
 
